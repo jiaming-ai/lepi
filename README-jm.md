@@ -1,5 +1,5 @@
 
-# active virtual env
+# active virtual env then install client
 pip install openpi-client
 
 
