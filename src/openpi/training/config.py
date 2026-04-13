@@ -592,6 +592,15 @@ class TrainConfig:
 
     # If true, will enable wandb logging.
     wandb_enabled: bool = True
+    # Wandb API key. If set, will call wandb.login(key=...) before init.
+    wandb_api_key: str | None = None
+
+    # How often (in steps) to run open-loop evaluation. Set to 0 to disable.
+    eval_interval: int = 0
+    # Number of episodes to sample per evaluation.
+    eval_num_samples: int = 3
+    # Number of timesteps to sample per episode (each produces an action chunk overlay).
+    eval_num_timesteps: int = 4
 
     # Used to pass metadata to the policy server.
     policy_metadata: dict[str, Any] | None = None
@@ -1021,6 +1030,9 @@ _CONFIGS = [
         ),
         optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
         ema_decay=0.999,
+        eval_interval=2000,
+        eval_num_samples=3,
+        eval_num_timesteps=4,
     ),
     TrainConfig(
         name="pi05_leju_task2",
@@ -1042,6 +1054,81 @@ _CONFIGS = [
         ),
         optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
         ema_decay=0.999,
+        eval_interval=2000,
+        eval_num_samples=3,
+        eval_num_timesteps=4,
+    ),
+    #
+    # Leju real-robot fine-tuning configs (HuggingFace datasets).
+    #
+    TrainConfig(
+        name="leju_real_task1",
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False),
+        data=LeRobotLejuDataConfig(
+            repo_id="jizhuochen/leju_real_task1",
+            local_root="/home/jiaming/leju/dataset/leju_real_task1",
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        batch_size=32,
+        num_train_steps=50_000,
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000,
+            peak_lr=5e-5,
+            decay_steps=30_000,
+            decay_lr=5e-6,
+        ),
+        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+        ema_decay=0.999,
+        eval_interval=2000,
+        eval_num_samples=3,
+        wandb_api_key="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",
+    ),
+    TrainConfig(
+        name="leju_real_task2",
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False),
+        data=LeRobotLejuDataConfig(
+            repo_id="jizhuochen/leju_real_task2",
+            local_root="/home/jiaming/leju/dataset/leju_real_task2",
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        batch_size=32,
+        num_train_steps=50_000,
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000,
+            peak_lr=5e-5,
+            decay_steps=30_000,
+            decay_lr=5e-6,
+        ),
+        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+        ema_decay=0.999,
+        eval_interval=2000,
+        eval_num_samples=3,
+        wandb_api_key="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",
+    ),
+    TrainConfig(
+        name="leju_real_task3",
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False),
+        data=LeRobotLejuDataConfig(
+            repo_id="jizhuochen/leju_real_task3",
+            local_root="/home/jiaming/leju/dataset/leju_real_task3",
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        batch_size=32,
+        num_train_steps=50_000,
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000,
+            peak_lr=5e-5,
+            decay_steps=30_000,
+            decay_lr=5e-6,
+        ),
+        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+        ema_decay=0.999,
+        eval_interval=2000,
+        eval_num_samples=3,
+        wandb_api_key="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",
     ),
     #
     # Debugging configs.

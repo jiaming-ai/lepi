@@ -24,6 +24,7 @@ import openpi.training.config as _config
 import openpi.training.data_loader as _data_loader
 import openpi.training.optimizer as _optimizer
 import openpi.training.sharding as sharding
+import openpi.training.eval as _eval
 import openpi.training.utils as training_utils
 import openpi.training.weight_loaders as _weight_loaders
 
@@ -51,6 +52,9 @@ def init_wandb(config: _config.TrainConfig, *, resuming: bool, log_code: bool = 
     if not enabled:
         wandb.init(mode="disabled")
         return
+
+    if config.wandb_api_key:
+        wandb.login(key=config.wandb_api_key)
 
     ckpt_dir = config.checkpoint_dir
     if not ckpt_dir.exists():
@@ -233,6 +237,21 @@ def main(config: _config.TrainConfig):
     ]
     wandb.log({"camera_views": images_to_log}, step=0)
 
+    # Set up open-loop evaluation if configured.
+    eval_dataset = None
+    eval_data_config = None
+    eval_fwd_transforms = None
+    eval_pre_norm_transforms = None
+    eval_unnorm = None
+    eval_abs_transforms = None
+    if config.eval_interval > 0:
+        eval_data_config, eval_fwd_transforms, eval_pre_norm_transforms, eval_unnorm, eval_abs_transforms = (
+            _eval.create_eval_transforms(config)
+        )
+        eval_dataset = _eval.create_eval_dataset(config)
+        logging.info("Open-loop eval enabled every %d steps (%d episodes)",
+                      config.eval_interval, config.eval_num_samples)
+
     train_state, train_state_sharding = init_train_state(config, init_rng, mesh, resume=resuming)
     jax.block_until_ready(train_state)
     logging.info(f"Initialized train state:\n{training_utils.array_tree_to_info(train_state.params)}")
@@ -268,6 +287,16 @@ def main(config: _config.TrainConfig):
             wandb.log(reduced_info, step=step)
             infos = []
         batch = next(data_iter)
+
+        if config.eval_interval > 0 and step > 0 and step % config.eval_interval == 0 and eval_dataset is not None:
+            logging.info("Running open-loop eval at step %d", step)
+            eval_log = _eval.open_loop_eval(
+                train_state, config, eval_dataset, eval_data_config,
+                eval_fwd_transforms, eval_pre_norm_transforms,
+                eval_unnorm, eval_abs_transforms, step,
+            )
+            if eval_log:
+                wandb.log(eval_log, step=step)
 
         if (step % config.save_interval == 0 and step > start_step) or step == config.num_train_steps - 1:
             _checkpoints.save_state(checkpoint_manager, train_state, data_loader, step)
